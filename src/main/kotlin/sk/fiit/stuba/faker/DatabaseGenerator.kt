@@ -1,9 +1,8 @@
 package sk.fiit.stuba.faker
 
 import com.github.javafaker.Faker
-import org.jetbrains.exposed.dao.Entity
 import org.jetbrains.exposed.dao.EntityID
-import org.jetbrains.exposed.sql.insert
+import org.jetbrains.exposed.sql.batchInsert
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.DateTime
 import sk.fiit.stuba.faker.entities.*
@@ -16,86 +15,115 @@ class DatabaseGenerator {
     val config = Properties().apply {
         load(DatabaseGenerator::class.java.classLoader.getResourceAsStream(CONFIG_FILE_NAME))
     }
+    val batchChunkSize = config.getProperty("BATCH_CHUNK_SIZE").toInt()
     val faker = Faker()
 
-    fun insertPilotsToDb() = transaction {
+    fun insertPilotsToDb() {
         val pilotsCount = config.getProperty(PILOTS_KEY, "1000").toInt()
-        val pilots = pilotsSequence()
-
-        pilots.take(pilotsCount).forEach { pilot ->
-            Pilot.insert {
-                it[name] = pilot.name
-                it[hoursFlown] = pilot.hoursFlown
-                it[rank] = pilot.rank
+        var i = 1
+        val batches = pilotsCount / batchChunkSize
+        pilotsSequence().take(pilotsCount).chunked(batchChunkSize).forEach {
+            transaction {
+                println("Inserting pilots, batch ${i++}/$batches")
+                Pilot.batchInsert(it.toList()) { pilot ->
+                    this[Pilot.name] = pilot.name
+                    this[Pilot.hoursFlown] = pilot.hoursFlown
+                    this[Pilot.rank] = pilot.rank
+                }
             }
         }
     }
 
-    fun insertRocketsToDb() = transaction {
+    fun insertRocketsToDb() {
         val rocketCount = config.getProperty(ROCKETS_KEY, "1000").toInt()
-        rocketsSequence().take(rocketCount).forEach {rocket ->
-            Rocket.insert {
-                it[model] = rocket.model
-                it[flown] = rocket.flown
-                it[capacity] = rocket.capacity
-                it[speed] = rocket.speed
-                it[fuelConsumption] = rocket.fuelConsumption
-                it[fuelCapacity] = rocket.fuelCapacity
+        var i = 1
+        val batches = rocketCount / batchChunkSize
+        rocketsSequence().take(rocketCount).chunked(batchChunkSize).forEach {
+            transaction {
+                println("Inserting rockets, batch ${i++}/$batches")
+                Rocket.batchInsert(it.toList()) { rocket ->
+                    this[Rocket.model] = rocket.model
+                    this[Rocket.flown] = rocket.flown
+                    this[Rocket.capacity] = rocket.capacity
+                    this[Rocket.speed] = rocket.speed
+                    this[Rocket.fuelConsumption] = rocket.fuelConsumption
+                    this[Rocket.fuelCapacity] = rocket.fuelCapacity
+                }
             }
         }
     }
 
-    fun insertHotelsToDb() = transaction {
+    fun insertHotelsToDb() {
         val hotelCount = config.getProperty(HOTELS_KEY, "1000").toInt()
-        hotelsSequence().take(hotelCount).forEach { hotel ->
-            Hotel.insert {
-                it[name] = hotel.name
-                it[price] = hotel.price
-                it[address] = hotel.address
-                it[phoneNum] = hotel.phoneNumber
-                it[planet] = EntityID(hotel.planetId, Planet)
+        var i = 1
+        val batches = hotelCount / batchChunkSize
+        hotelsSequence().take(hotelCount).chunked(batchChunkSize).forEach {
+            transaction {
+                println("Inserting hotels, batch ${i++}/$batches")
+                Hotel.batchInsert(it.toList()) { hotel ->
+                    this[Hotel.name] = hotel.name
+                    this[Hotel.price] = hotel.price
+                    this[Hotel.address] = hotel.address
+                    this[Hotel.phoneNum] = hotel.phoneNumber
+                    this[Hotel.planet] = EntityID(hotel.planetId, Planet)
+                }
             }
         }
     }
 
-    fun insertCustomersToDb() = transaction {
+    fun insertCustomersToDb() {
         val customerCount = config.getProperty(CUSTOMERS_KEY, "1000").toInt()
-        customersSequence().take(customerCount).forEach { hotel ->
-            Customer.insert {
-                it[name] = hotel.name
-                it[birthDate] = hotel.birthDate
-                it[phoneNumber] = hotel.phoneNum
-                it[email] = hotel.email
-                it[street] = hotel.street
-                it[postalCode] = hotel.postalCode
-                it[city] = hotel.city
-                it[country] = EntityID(hotel.countryId, Hotel)
+        var i = 1
+        val batches = customerCount / batchChunkSize
+        customersSequence().take(customerCount).chunked(batchChunkSize).forEach {
+            transaction {
+                println("Inserting customers, batch ${i++}/$batches")
+                Customer.batchInsert(it.toList()) { customer ->
+                    this[Customer.name] = customer.name
+                    this[Customer.birthDate] = customer.birthDate
+                    this[Customer.phoneNumber] = customer.phoneNum
+                    this[Customer.email] = customer.email
+                    this[Customer.street] = customer.street
+                    this[Customer.postalCode] = customer.postalCode
+                    this[Customer.city] = customer.city
+                    this[Customer.country] = EntityID(customer.countryId, Hotel)
+                }
             }
         }
     }
 
-    fun insertTripsToDb() = transaction {
+    fun insertTripsToDb() {
         val tripCount = config.getProperty(TRIPS_KEY, "10000").toInt()
-        tripsSequence().take(tripCount).forEach { trip ->
-            Trip.insert {
-                it[startDate] = trip.startDate
-                it[endDate] = trip.endDate
-                it[capacity] = trip.capacity
-                it[cost] = trip.cost
-                it[pilot] = EntityID(trip.pilot, Pilot)
-                it[rocket] = EntityID(trip.rocket, Rocket)
-                it[hotel] = EntityID(trip.hotel, Hotel)
+        var i = 1
+        val batches = tripCount / batchChunkSize
+        tripsSequence().take(tripCount).chunked(batchChunkSize).forEach {
+            transaction {
+                println("Inserting trips, batch ${i++}/$batches")
+                Trip.batchInsert(it.toList()) { trip ->
+                    this[Trip.startDate] = trip.startDate
+                    this[Trip.endDate] = trip.endDate
+                    this[Trip.capacity] = trip.capacity
+                    this[Trip.cost] = trip.cost
+                    this[Trip.pilot] = EntityID(trip.pilot, Pilot)
+                    this[Trip.rocket] = EntityID(trip.rocket, Rocket)
+                    this[Trip.hotel] = EntityID(trip.hotel, Hotel)
+                }
             }
         }
     }
 
-    fun insertTripOrdersToDb() = transaction {
+    fun insertTripOrdersToDb() {
         val tripOrderCount = config.getProperty(TRIP_ORDERS_KEY, "1000").toInt()
-        tripOrdersSequence().take(tripOrderCount).forEach { tripOrder ->
-            TripOrder.insert {
-                it[date] = tripOrder.date
-                it[trip] = EntityID(tripOrder.tripId, Trip)
-                it[customer] = EntityID(tripOrder.customerId, Customer)
+        var i = 1
+        val batches = tripOrderCount / batchChunkSize
+        tripOrdersSequence().take(tripOrderCount).chunked(batchChunkSize).forEach {
+            transaction {
+                println("Inserting trip orders, batch ${i++}/$batches")
+                TripOrder.batchInsert(it.toList()) { tripOrder ->
+                    this[TripOrder.date] = tripOrder.date
+                    this[TripOrder.trip] = EntityID(tripOrder.tripId, Trip)
+                    this[TripOrder.customer] = EntityID(tripOrder.customerId, Customer)
+                }
             }
         }
     }
