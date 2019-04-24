@@ -2,7 +2,7 @@ package sk.fiit.stuba.faker.entities
 
 import org.jetbrains.exposed.dao.LongIdTable
 
-object Country : LongIdTable("country", "country_id") {
+object Country : LongIdTable("country") {
     val name = text("name")
-    val phonePrefix = varchar("phone_prefix", 10)
+    val phonePrefix = varchar("phone_prefix", 20)
 }
